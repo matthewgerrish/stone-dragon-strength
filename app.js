@@ -6,6 +6,14 @@
   const KEY_TRAINER = "trainerpro_data_v1";
   const KEY_CLIENT  = "trainerpro_client_v1";
   const KEY_SESSION = "trainerpro_session_v1";
+  const KEY_COACH_GATE = "trainerpro_coach_gate_v1";
+
+  // Coach-access shared code. Client-side only — gate against casual visitors,
+  // not a real security boundary (anyone reading the JS can find it).
+  const COACH_GATE_CODE = "SD253";
+  function isCoachGateUnlocked() { return sessionStorage.getItem(KEY_COACH_GATE) === "1"; }
+  function lockCoachGate() { sessionStorage.removeItem(KEY_COACH_GATE); }
+  function unlockCoachGate() { sessionStorage.setItem(KEY_COACH_GATE, "1"); }
 
   const DEFAULT_TRAINER = { trainer: null, clients: [] };
   const DEFAULT_CLIENT = { program: null, progress: null };
@@ -191,13 +199,21 @@
     show($("#screen-login"));
     hide($("#screen-app"));
     hide($("#screen-client"));
-    ["#login-role", "#login-setup", "#login-signin", "#login-client-import", "#login-athlete-setup", "#login-athlete-signin"]
+    ["#login-role", "#login-setup", "#login-signin", "#login-client-import", "#login-athlete-setup", "#login-athlete-signin", "#login-coach-gate"]
       .forEach((s) => hide($(s)));
     show($(panel));
   }
 
   function pickRole(role) {
     if (role === "trainer") {
+      // Gate any path to coach UI behind the shared access code.
+      if (!isCoachGateUnlocked()) {
+        showLoginScreen("#login-coach-gate");
+        $("#coach-gate-input").value = "";
+        $("#coach-gate-error").classList.add("hidden");
+        setTimeout(() => $("#coach-gate-input").focus(), 50);
+        return;
+      }
       if (state.trainerData.trainer) {
         showLoginScreen("#login-signin");
         $("#login-hello").textContent = `Sign in as ${state.trainerData.trainer.name}.`;
@@ -311,6 +327,18 @@
     showAthleteImport();
   }
 
+  // -------- Coach access gate --------
+  function submitCoachGate() {
+    const entered = ($("#coach-gate-input").value || "").trim();
+    const err = $("#coach-gate-error");
+    if (entered.toUpperCase() !== COACH_GATE_CODE) {
+      return showErr(err, "Incorrect access code.");
+    }
+    err.classList.add("hidden");
+    unlockCoachGate();
+    pickRole("trainer"); // re-routes to setup or signin now that the gate is unlocked
+  }
+
   // -------- Coach auth --------
   function setupAccount() {
     const name = $("#setup-name").value.trim();
@@ -356,6 +384,7 @@
     state.trainerData = structuredClone(DEFAULT_TRAINER);
     saveTrainer();
     sessionStorage.removeItem(KEY_SESSION);
+    lockCoachGate(); // next coach setup must re-enter the access code
     $("#setup-name").value = ""; $("#setup-pin").value = ""; $("#setup-pin-confirm").value = "";
     showLoginScreen("#login-role");
   }
@@ -2049,6 +2078,10 @@
     $("#btn-reset").addEventListener("click", resetTrainerAccount);
     $("#login-pin").addEventListener("keydown", (e) => { if (e.key === "Enter") signIn(); });
     $("#setup-pin-confirm").addEventListener("keydown", (e) => { if (e.key === "Enter") setupAccount(); });
+
+    // Coach access gate
+    $("#btn-coach-gate").addEventListener("click", submitCoachGate);
+    $("#coach-gate-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitCoachGate(); });
 
     $("#btn-import-code").addEventListener("click", importClientCode);
     $("#btn-invite-login").addEventListener("click", loginWithInviteCode);

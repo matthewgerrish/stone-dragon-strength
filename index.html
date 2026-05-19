@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="logo-512.png" />
   <link rel="apple-touch-icon" sizes="192x192" href="logo-192.png" />
   <link rel="apple-touch-icon" sizes="512x512" href="logo-512.png" />
-  <link rel="stylesheet" href="styles.css?v=cover1" />
+  <link rel="stylesheet" href="styles.css?v=gate1" />
 </head>
 <body>
 
@@ -37,6 +37,18 @@
         <div class="coach-access-footer">
           <button class="coach-access-link" data-role="trainer" aria-label="Coach access">Coach access</button>
         </div>
+      </div>
+
+      <!-- Coach gate (must enter shared access code before reaching coach setup/signin) -->
+      <div id="login-coach-gate" class="hidden">
+        <button class="btn-link back-to-role">← Back</button>
+        <h2>Coach access</h2>
+        <p class="muted">Enter the coach access code to continue.</p>
+        <label>Access code
+          <input type="password" id="coach-gate-input" placeholder="••••" autocomplete="off" autocapitalize="characters" />
+        </label>
+        <button class="btn btn-primary btn-block" id="btn-coach-gate">Continue</button>
+        <p id="coach-gate-error" class="error hidden"></p>
       </div>
 
       <!-- Trainer: setup -->
