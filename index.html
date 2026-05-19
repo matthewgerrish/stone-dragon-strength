@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#06b6d4" />
+  <title>Stone Dragon Strength Training</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icon-192.svg" />
+  <link rel="apple-touch-icon" href="icon-192.svg" />
+  <link rel="stylesheet" href="styles.css?v=fx3" />
+</head>
+<body>
+
+  <!-- ============ LOGIN SCREEN ============ -->
+  <section id="screen-login" class="screen">
+    <div class="login-card">
+      <div class="brand">
+        <div class="brand-mark"><img src="logo.png" alt="Stone Dragon" onerror="this.onerror=null; this.src='icon-192.svg';" /></div>
+        <h1>STONE DRAGON</h1>
+        <p class="tagline">Strength Training</p>
+      </div>
+
+      <!-- Role picker — athlete-first, coach access tucked away -->
+      <div id="login-role">
+        <h2 class="login-welcome">Welcome</h2>
+        <p class="muted login-welcome-sub">Sign in to your training program.</p>
+        <button class="btn btn-primary btn-block btn-login-main" data-role="client">Log in</button>
+        <p class="install-hint">
+          📱 On mobile? Tap <em>Share → Add to Home Screen</em> to install Stone Dragon as an app.
+        </p>
+        <div class="coach-access-footer">
+          <button class="coach-access-link" data-role="trainer" aria-label="Coach access">Coach access</button>
+        </div>
+      </div>
+
+      <!-- Trainer: setup -->
+      <div id="login-setup" class="hidden">
+        <button class="btn-link back-to-role">← Back</button>
+        <h2>Create coach account</h2>
+        <p class="muted">Set a PIN to keep your client data private on this device.</p>
+        <label>Your name
+          <input type="text" id="setup-name" placeholder="e.g. Coach Drake" autocomplete="name" />
+        </label>
+        <label>Create a PIN (4+ characters)
+          <input type="password" id="setup-pin" placeholder="••••" />
+        </label>
+        <label>Confirm PIN
+          <input type="password" id="setup-pin-confirm" placeholder="••••" />
+        </label>
+        <button class="btn btn-primary btn-block" id="btn-setup">Create account</button>
+        <p id="setup-error" class="error hidden"></p>
+      </div>
+
+      <!-- Trainer: sign in -->
+      <div id="login-signin" class="hidden">
+        <button class="btn-link back-to-role">← Back</button>
+        <h2>Welcome back, Coach</h2>
+        <p class="muted" id="login-hello">Sign in to continue.</p>
+        <label>PIN
+          <input type="password" id="login-pin" placeholder="••••" autocomplete="current-password" />
+        </label>
+        <button class="btn btn-primary btn-block" id="btn-signin">Sign in</button>
+        <p id="login-error" class="error hidden"></p>
+        <button class="btn-link" id="btn-reset">Reset coach account (clears local data)</button>
+      </div>
+
+      <!-- Athlete: invite/access code (first time) -->
+      <div id="login-client-import" class="hidden">
+        <button class="btn-link back-to-role">← Back</button>
+        <h2 id="login-athlete-heading">Welcome, athlete</h2>
+        <p class="muted" id="login-athlete-sub">Enter the <strong>invite code</strong> from your coach.</p>
+        <label>Invite code
+          <input type="text" id="invite-code-input" placeholder="XXXX-XXXX" maxlength="9" autocomplete="off" autocapitalize="characters" />
+        </label>
+        <button class="btn btn-primary btn-block" id="btn-invite-login">Continue</button>
+        <p id="client-import-error" class="error hidden"></p>
+        <button class="btn-link hidden" id="btn-client-resume">Open my already-loaded program</button>
+
+        <details class="long-code-fallback">
+          <summary>Got a long access code instead?</summary>
+          <p class="muted" style="margin-top:0.6em">Paste the long code your coach sent if your invite code isn't recognized on this device.</p>
+          <label>Access code
+            <textarea id="client-code" rows="5" placeholder="Long string of letters and numbers..."></textarea>
+          </label>
+          <button class="btn btn-ghost btn-block" id="btn-import-code">Load from access code</button>
+        </details>
+      </div>
+
+      <!-- Athlete: create profile after first import -->
+      <div id="login-athlete-setup" class="hidden">
+        <button class="btn-link back-to-role">← Back</button>
+        <h2>Create your profile</h2>
+        <p class="muted">Program loaded! Set a name and password — next time you can sign in instantly without the referral code.</p>
+        <label>Your name
+          <input type="text" id="athlete-setup-name" placeholder="e.g. Jamie Lee" autocomplete="name" />
+        </label>
+        <label>Password (4+ characters)
+          <input type="password" id="athlete-setup-pw" placeholder="••••" autocomplete="new-password" />
+        </label>
+        <label>Confirm password
+          <input type="password" id="athlete-setup-pw-confirm" placeholder="••••" autocomplete="new-password" />
+        </label>
+        <button class="btn btn-primary btn-block" id="btn-athlete-setup">Save profile &amp; continue</button>
+        <p id="athlete-setup-error" class="error hidden"></p>
+      </div>
+
+      <!-- Athlete: sign in with password (returning user) -->
+      <div id="login-athlete-signin" class="hidden">
+        <button class="btn-link back-to-role">← Back</button>
+        <h2 id="athlete-signin-heading">Welcome back</h2>
+        <p class="muted" id="athlete-signin-sub">Enter your password to continue training.</p>
+        <label>Password
+          <input type="password" id="athlete-signin-pw" placeholder="••••" autocomplete="current-password" />
+        </label>
+        <button class="btn btn-primary btn-block" id="btn-athlete-signin">Sign in</button>
+        <p id="athlete-signin-error" class="error hidden"></p>
+        <div style="display:flex; justify-content: space-between; margin-top: 0.8em; gap: 0.6em; flex-wrap: wrap;">
+          <button class="btn-link" id="btn-athlete-use-new-code">Use a new invite code</button>
+          <button class="btn-link" id="btn-athlete-forget">Forget my account</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ COACH APP ============ -->
+  <section id="screen-app" class="screen hidden">
+    <header class="app-header">
+      <div class="header-left">
+        <div class="brand-mark sm"><img src="logo.png" alt="" onerror="this.onerror=null; this.src='icon-192.svg';" /></div>
+        <div>
+          <div class="header-title">Stone Dragon</div>
+          <div class="header-sub" id="header-trainer-name"></div>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-ghost btn-sm" id="btn-logout">Sign out</button>
+      </div>
+    </header>
+
+    <main class="app-main">
+
+      <!-- Dashboard -->
+      <div id="view-dashboard" class="view">
+        <div class="view-head">
+          <h2>Athletes</h2>
+          <button class="btn btn-primary" id="btn-add-client">+ Add athlete</button>
+        </div>
+        <div id="client-grid" class="client-grid"></div>
+        <div id="client-empty" class="empty-state hidden">
+          <div class="empty-emoji">🐉</div>
+          <h3>No athletes yet</h3>
+          <p>Add your first athlete to start building their program.</p>
+        </div>
+      </div>
+
+      <!-- Client detail -->
+      <div id="view-client" class="view hidden">
+        <button class="btn-link back-link" id="btn-back">← All athletes</button>
+
+        <div class="client-head">
+          <div>
+            <h2 id="client-name-display"></h2>
+            <div class="muted" id="client-meta-display"></div>
+          </div>
+          <div class="client-head-actions">
+            <button class="btn btn-primary" id="btn-share-client"><span class="desktop-only">Share with athlete</span><span class="mobile-only">Share</span></button>
+            <button class="btn btn-ghost" id="btn-import-progress"><span class="desktop-only">Import progress</span><span class="mobile-only">Import</span></button>
+            <button class="btn btn-ghost" id="btn-edit-client"><span class="desktop-only">Edit profile</span><span class="mobile-only">Edit</span></button>
+            <button class="btn btn-danger" id="btn-delete-client">Delete</button>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="profile">Profile</button>
+          <button class="tab" data-tab="program">Program</button>
+          <button class="tab" data-tab="calendar">Calendar</button>
+          <button class="tab" data-tab="diet">Diet</button>
+          <button class="tab" data-tab="prs">PRs</button>
+          <button class="tab" data-tab="logs">Athlete Logs</button>
+        </div>
+
+        <!-- Profile -->
+        <div class="tab-panel active" data-tab-panel="profile">
+          <div class="card invite-code-card">
+            <div class="invite-code-head">
+              <h3>Athlete invite code</h3>
+              <button class="btn btn-ghost btn-sm" id="btn-regen-invite">↻ Regenerate</button>
+            </div>
+            <div class="invite-code-display" id="invite-code-display">XXXX-XXXX</div>
+            <div class="invite-code-actions">
+              <button class="btn btn-primary btn-sm" id="btn-copy-invite">Copy code</button>
+              <span class="muted" style="font-size:0.85rem">Share this short code with your athlete — they enter it on the sign-in screen to access their portal.</span>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Profile</h3>
+            <div class="grid-2">
+              <label>Name
+                <input type="text" id="prof-name" />
+              </label>
+              <label>Age
+                <input type="number" id="prof-age" min="0" />
+              </label>
+              <label>Height (in)
+                <input type="number" id="prof-height" min="0" />
+              </label>
+              <label>Body weight (lb)
+                <input type="number" id="prof-weight" step="0.1" min="0" />
+              </label>
+            </div>
+            <label>Overall goals
+              <textarea id="prof-goals" rows="3" placeholder="e.g. Add 30 lb to squat, build lean mass, cut 10 lb"></textarea>
+            </label>
+            <label>Coach notes
+              <textarea id="prof-notes" rows="3" placeholder="Injury history, preferences, schedule constraints…"></textarea>
+            </label>
+            <div class="row-end">
+              <span class="saved-flag" id="prof-saved">Saved ✓</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Program -->
+        <div class="tab-panel" data-tab-panel="program">
+          <div class="program-head">
+            <h3>Training Program</h3>
+            <div class="program-actions">
+              <button class="btn btn-primary" id="btn-load-template">⚡ Load 12-week template</button>
+              <button class="btn btn-ghost" id="btn-add-week">+ Add week</button>
+            </div>
+          </div>
+          <div id="weeks-container" class="weeks-container"></div>
+          <div id="weeks-empty" class="empty-state hidden">
+            <div class="empty-emoji">📋</div>
+            <h3>No weeks yet</h3>
+            <p>Start with our science-based 12-week template, or build from scratch.</p>
+            <div style="display:flex; gap:0.5em; justify-content:center; flex-wrap:wrap; margin-top:0.6em;">
+              <button class="btn btn-primary" id="btn-load-template-empty">⚡ Load 12-week template</button>
+              <button class="btn btn-ghost" id="btn-add-week-empty">+ Add empty week</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Calendar (coach) -->
+        <div class="tab-panel" data-tab-panel="calendar">
+          <div class="program-head">
+            <h3>Shared Calendar</h3>
+            <p class="muted">Schedule the program onto real dates. Athlete completion auto-fills from their logs after each sync.</p>
+          </div>
+          <div class="calendar-head">
+            <div class="cal-nav">
+              <button class="btn btn-ghost btn-sm" id="cal-prev">‹</button>
+              <h4 class="cal-title" id="cal-title"></h4>
+              <button class="btn btn-ghost btn-sm" id="cal-next">›</button>
+              <button class="btn btn-ghost btn-sm" id="cal-today">Today</button>
+            </div>
+            <div class="cal-legend">
+              <span><span class="swatch sw-sched"></span>Scheduled</span>
+              <span><span class="swatch sw-partial"></span>In progress</span>
+              <span><span class="swatch sw-done"></span>Completed</span>
+              <span><span class="swatch sw-missed"></span>Missed</span>
+              <span><span class="swatch sw-rest"></span>Rest</span>
+            </div>
+          </div>
+          <div id="cal-grid" class="cal-grid"></div>
+        </div>
+
+        <!-- Diet -->
+        <div class="tab-panel" data-tab-panel="diet">
+          <div class="program-head">
+            <h3>Nutrition Plan</h3>
+            <p class="muted">Daily calorie &amp; protein targets, organized by week.</p>
+          </div>
+          <div id="diet-container" class="weeks-container"></div>
+          <div id="diet-empty" class="empty-state hidden">
+            <div class="empty-emoji">🥩</div>
+            <h3>No weeks yet</h3>
+            <p>Add a training week first — nutrition aligns to program weeks.</p>
+          </div>
+        </div>
+
+        <!-- PRs (coach) -->
+        <div class="tab-panel" data-tab-panel="prs">
+          <div class="program-head">
+            <h3>Personal Records</h3>
+            <button class="btn btn-primary" id="btn-coach-add-pr">+ Add PR</button>
+          </div>
+          <p class="muted" style="margin-bottom:1em">Top weight × reps for each lift. Both you and your athlete can add entries; the heaviest set per exercise is highlighted as the current PR.</p>
+          <div id="coach-pr-container"></div>
+          <div id="coach-pr-empty" class="empty-state hidden">
+            <div class="empty-emoji">🏆</div>
+            <h3>No PRs yet</h3>
+            <p>Add a personal record to start tracking strength milestones.</p>
+          </div>
+        </div>
+
+        <!-- Athlete Logs -->
+        <div class="tab-panel" data-tab-panel="logs">
+          <div class="program-head">
+            <h3>Athlete Logs</h3>
+            <p class="muted">What your athlete actually did. Imported from their device.</p>
+          </div>
+          <div id="logs-container"></div>
+          <div id="logs-empty" class="empty-state">
+            <div class="empty-emoji">📈</div>
+            <h3>No logs yet</h3>
+            <p>Share your athlete's access code, then import their progress here.</p>
+            <button class="btn btn-primary" id="btn-import-progress-empty">Import progress code</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </section>
+
+  <!-- ============ ATHLETE PORTAL ============ -->
+  <section id="screen-client" class="screen hidden">
+    <header class="app-header">
+      <div class="header-left">
+        <div class="brand-mark sm"><img src="logo.png" alt="" onerror="this.onerror=null; this.src='icon-192.svg';" /></div>
+        <div>
+          <div class="header-title">Stone Dragon</div>
+          <div class="header-sub" id="client-portal-name"></div>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-primary btn-sm" id="btn-client-send"><span class="desktop-only">Send progress</span><span class="mobile-only">Send</span></button>
+        <button class="btn btn-ghost btn-sm" id="btn-client-reload"><span class="desktop-only">Reload code</span><span class="mobile-only">Reload</span></button>
+        <button class="btn btn-ghost btn-sm" id="btn-client-logout">Exit</button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <div class="tabs">
+        <button class="tab active" data-ctab="calendar">Calendar</button>
+        <button class="tab" data-ctab="workouts">Workouts</button>
+        <button class="tab" data-ctab="diet">Nutrition</button>
+        <button class="tab" data-ctab="prs">PRs</button>
+        <button class="tab" data-ctab="progress">My Progress</button>
+      </div>
+
+      <!-- Calendar (athlete) -->
+      <div class="tab-panel active" data-ctab-panel="calendar">
+        <div class="program-head">
+          <h3>My Calendar</h3>
+          <p class="muted" id="client-trainer-credit"></p>
+        </div>
+        <div class="calendar-head">
+          <div class="cal-nav">
+            <button class="btn btn-ghost btn-sm" id="ccal-prev">‹</button>
+            <h4 class="cal-title" id="ccal-title"></h4>
+            <button class="btn btn-ghost btn-sm" id="ccal-next">›</button>
+            <button class="btn btn-ghost btn-sm" id="ccal-today">Today</button>
+          </div>
+          <div class="cal-legend">
+            <span><span class="swatch sw-sched"></span>Scheduled</span>
+            <span><span class="swatch sw-partial"></span>In progress</span>
+            <span><span class="swatch sw-done"></span>Completed</span>
+            <span><span class="swatch sw-missed"></span>Missed</span>
+            <span><span class="swatch sw-rest"></span>Rest</span>
+          </div>
+        </div>
+        <div id="ccal-grid" class="cal-grid"></div>
+      </div>
+
+      <!-- Workouts -->
+      <div class="tab-panel" data-ctab-panel="workouts">
+        <div class="program-head">
+          <h3>Training Plan</h3>
+        </div>
+        <div id="client-weeks-container" class="weeks-container"></div>
+      </div>
+
+      <!-- Diet -->
+      <div class="tab-panel" data-ctab-panel="diet">
+        <div class="program-head">
+          <h3>Daily Nutrition Targets</h3>
+        </div>
+        <div id="client-diet-container" class="weeks-container"></div>
+      </div>
+
+      <!-- PRs (athlete) -->
+      <div class="tab-panel" data-ctab-panel="prs">
+        <div class="program-head">
+          <h3>My Personal Records</h3>
+          <button class="btn btn-primary" id="btn-athlete-add-pr">+ Add PR</button>
+        </div>
+        <p class="muted" style="margin-bottom:1em">Log your best lifts. The heaviest set per exercise is highlighted as your current PR.</p>
+        <div id="athlete-pr-container"></div>
+        <div id="athlete-pr-empty" class="empty-state hidden">
+          <div class="empty-emoji">🏆</div>
+          <h3>No PRs yet</h3>
+          <p>Smash a lift, then log it here. Send progress to share with your coach.</p>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div class="tab-panel" data-ctab-panel="progress">
+        <div class="card">
+          <h3>Today's body weight</h3>
+          <div class="bw-form">
+            <label>Date
+              <input type="date" id="bw-date" />
+            </label>
+            <label>Weight (lb)
+              <input type="number" id="bw-weight" step="0.1" placeholder="e.g. 178.5" />
+            </label>
+            <button class="btn btn-primary" id="btn-log-bw">Log weight</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Body weight history</h3>
+          <div id="bw-history"></div>
+        </div>
+        <div class="card">
+          <h3>Notes for my coach</h3>
+          <textarea id="client-feedback" rows="4" placeholder="How are things going? Any aches, schedule conflicts, food cravings…"></textarea>
+          <p class="muted">Saved on this device. Tap <strong>Send progress</strong> in the header to share with your coach.</p>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <!-- ============ MODAL ============ -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="modal-title">Title</h3>
+        <button class="icon-btn" data-close aria-label="Close">×</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-foot" id="modal-foot"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

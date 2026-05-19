@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1424"/>
+      <stop offset="1" stop-color="#1a2e52"/>
+    </linearGradient>
+    <linearGradient id="wing" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+    <linearGradient id="scale" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4b5563"/>
+      <stop offset="1" stop-color="#1f2937"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e2e8f0"/>
+      <stop offset="0.5" stop-color="#94a3b8"/>
+      <stop offset="1" stop-color="#475569"/>
+    </linearGradient>
+    <linearGradient id="eyeglow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#67e8f9"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="90" fill="url(#bg)"/>
+  <path d="M 186 186 L 37 100 L 58 246 L 42 332 L 160 266 Z" fill="url(#wing)" opacity="0.95"/>
+  <path d="M 326 186 L 475 100 L 454 246 L 470 332 L 352 266 Z" fill="url(#wing)" opacity="0.95"/>
+  <path d="M 170 118 Q 134 58 102 32 Q 160 75 202 107 Z" fill="url(#scale)"/>
+  <path d="M 342 118 Q 378 58 410 32 Q 352 75 310 107 Z" fill="url(#scale)"/>
+  <path d="M 213 102 Q 202 42 218 28 Q 234 58 240 96 Z" fill="url(#scale)"/>
+  <path d="M 299 102 Q 310 42 294 28 Q 278 58 272 96 Z" fill="url(#scale)"/>
+  <path d="M 256 96 L 170 144 L 150 230 L 160 310 L 213 368 L 256 394 L 299 368 L 352 310 L 362 230 L 342 144 Z" fill="url(#scale)" stroke="#0b1424" stroke-width="2"/>
+  <path d="M 176 187 L 229 208 L 208 229 Z" fill="#1f2937"/>
+  <path d="M 336 187 L 283 208 L 304 229 Z" fill="#1f2937"/>
+  <ellipse cx="213" cy="219" rx="22" ry="11" fill="url(#eyeglow)"/>
+  <ellipse cx="299" cy="219" rx="22" ry="11" fill="url(#eyeglow)"/>
+  <ellipse cx="213" cy="219" rx="8" ry="5" fill="#ecfeff"/>
+  <ellipse cx="299" cy="219" rx="8" ry="5" fill="#ecfeff"/>
+  <path d="M 235 256 L 256 288 L 277 256 Z" fill="#0b1424"/>
+  <path d="M 197 309 Q 256 394 315 309 L 293 331 L 256 352 L 219 331 Z" fill="#0b1424"/>
+  <polygon points="213,309 224,368 235,309" fill="#f1f5f9"/>
+  <polygon points="277,309 288,368 299,309" fill="#f1f5f9"/>
+  <polygon points="245,341 256,384 267,341" fill="#f1f5f9"/>
+  <rect x="54" y="394" width="404" height="22" rx="8" fill="url(#bar)"/>
+  <rect x="32" y="368" width="38" height="74" rx="8" fill="url(#bar)"/>
+  <rect x="442" y="368" width="38" height="74" rx="8" fill="url(#bar)"/>
+  <rect x="16" y="384" width="16" height="44" rx="4" fill="#e2e8f0"/>
+  <rect x="480" y="384" width="16" height="44" rx="4" fill="#e2e8f0"/>
+  <rect x="38" y="373" width="5" height="64" fill="#f1f5f9" opacity="0.6"/>
+  <rect x="469" y="373" width="5" height="64" fill="#f1f5f9" opacity="0.6"/>
+</svg>

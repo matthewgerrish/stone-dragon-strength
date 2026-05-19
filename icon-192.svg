@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1424"/>
+      <stop offset="1" stop-color="#1a2e52"/>
+    </linearGradient>
+    <linearGradient id="wing" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+    <linearGradient id="scale" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4b5563"/>
+      <stop offset="1" stop-color="#1f2937"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e2e8f0"/>
+      <stop offset="0.5" stop-color="#94a3b8"/>
+      <stop offset="1" stop-color="#475569"/>
+    </linearGradient>
+    <linearGradient id="eyeglow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#67e8f9"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="192" height="192" rx="34" fill="url(#bg)"/>
+
+  <!-- Left wing/ear fan -->
+  <path d="M 70 70 L 14 38 L 22 92 L 16 124 L 60 100 Z" fill="url(#wing)" opacity="0.95"/>
+  <!-- Right wing/ear fan -->
+  <path d="M 122 70 L 178 38 L 170 92 L 176 124 L 132 100 Z" fill="url(#wing)" opacity="0.95"/>
+
+  <!-- Curved back horns -->
+  <path d="M 64 44 Q 50 22 38 12 Q 60 28 76 40 Z" fill="url(#scale)"/>
+  <path d="M 128 44 Q 142 22 154 12 Q 132 28 116 40 Z" fill="url(#scale)"/>
+  <!-- Inner horns -->
+  <path d="M 80 38 Q 76 16 82 10 Q 88 22 90 36 Z" fill="url(#scale)"/>
+  <path d="M 112 38 Q 116 16 110 10 Q 104 22 102 36 Z" fill="url(#scale)"/>
+
+  <!-- Head — angular hexagonal mask, frontal -->
+  <path d="M 96 36
+           L 64 54
+           L 56 86
+           L 60 116
+           L 80 138
+           L 96 148
+           L 112 138
+           L 132 116
+           L 136 86
+           L 128 54 Z" fill="url(#scale)" stroke="#0b1424" stroke-width="1"/>
+
+  <!-- Brow ridges (angular) -->
+  <path d="M 66 70 L 86 78 L 78 86 Z" fill="#1f2937"/>
+  <path d="M 126 70 L 106 78 L 114 86 Z" fill="#1f2937"/>
+
+  <!-- Glowing eyes -->
+  <ellipse cx="80" cy="82" rx="8" ry="4" fill="url(#eyeglow)"/>
+  <ellipse cx="112" cy="82" rx="8" ry="4" fill="url(#eyeglow)"/>
+  <ellipse cx="80" cy="82" rx="3" ry="2" fill="#ecfeff"/>
+  <ellipse cx="112" cy="82" rx="3" ry="2" fill="#ecfeff"/>
+
+  <!-- Nose/snout shadow -->
+  <path d="M 88 96 L 96 108 L 104 96 Z" fill="#0b1424"/>
+
+  <!-- Open mouth -->
+  <path d="M 74 116 Q 96 148 118 116 L 110 124 L 96 132 L 82 124 Z" fill="#0b1424"/>
+
+  <!-- Fangs (top + bottom) -->
+  <polygon points="80,116 84,138 88,116" fill="#f1f5f9"/>
+  <polygon points="104,116 108,138 112,116" fill="#f1f5f9"/>
+  <polygon points="92,128 96,144 100,128" fill="#f1f5f9"/>
+
+  <!-- Barbell across bottom (held in jaws) -->
+  <rect x="20" y="148" width="152" height="8" rx="3" fill="url(#bar)"/>
+  <!-- Plates -->
+  <rect x="12" y="138" width="14" height="28" rx="3" fill="url(#bar)"/>
+  <rect x="166" y="138" width="14" height="28" rx="3" fill="url(#bar)"/>
+  <rect x="6" y="144" width="6" height="16" rx="1.5" fill="#e2e8f0"/>
+  <rect x="180" y="144" width="6" height="16" rx="1.5" fill="#e2e8f0"/>
+  <!-- Plate inner highlights -->
+  <rect x="14" y="140" width="2" height="24" fill="#f1f5f9" opacity="0.6"/>
+  <rect x="176" y="140" width="2" height="24" fill="#f1f5f9" opacity="0.6"/>
+</svg>
