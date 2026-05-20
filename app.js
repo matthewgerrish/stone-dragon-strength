@@ -179,6 +179,25 @@
   }
   if (_trainerDataDirty) saveTrainer();
 
+  // One-time cloud backfill: if this device has local data that predates cloud sync,
+  // push everything once so cross-device login works without requiring an edit first.
+  const KEY_CLOUD_BACKFILLED = "trainerpro_cloud_backfilled_v1";
+  if (
+    window.Cloud?.enabled &&
+    state.trainerData.trainer &&
+    state.trainerData.coachId &&
+    !localStorage.getItem(KEY_CLOUD_BACKFILLED)
+  ) {
+    (async () => {
+      await window.Cloud.upsertCoach(state.trainerData.coachId, state.trainerData.trainer.name);
+      for (const c of state.trainerData.clients) {
+        await window.Cloud.upsertAthlete(c, state.trainerData.coachId);
+      }
+      localStorage.setItem(KEY_CLOUD_BACKFILLED, String(Date.now()));
+      console.log(`[Cloud] Backfilled coach + ${state.trainerData.clients.length} athletes.`);
+    })().catch((e) => console.warn("[Cloud] backfill failed; will retry next boot", e));
+  }
+
   // -------- DOM helpers --------
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -491,6 +510,10 @@
             const c = makeClient(name);
             state.trainerData.clients.push(c);
             saveTrainer();
+            // Immediate push so cross-device login works the moment the coach shares the invite code.
+            if (window.Cloud?.enabled && state.trainerData.coachId) {
+              window.Cloud.upsertAthlete(c, state.trainerData.coachId);
+            }
             closeModal();
             openClient(c.id);
             toast("Athlete added");
@@ -593,9 +616,12 @@
   }
   function deleteClientPrompt() {
     const c = currentClient(); if (!c) return;
-    if (!window.confirm(`Delete ${c.name}? Removes the athlete and their entire program from this device.`)) return;
+    if (!window.confirm(`Delete ${c.name}? Removes the athlete and their entire program from this device and the cloud.`)) return;
+    const cloudId = c.id;
     state.trainerData.clients = state.trainerData.clients.filter((x) => x.id !== c.id);
     saveTrainer();
+    // Cloud: delete athlete (CASCADE removes athlete_profiles + progress).
+    if (window.Cloud?.enabled) window.Cloud.deleteAthlete(cloudId);
     renderDashboard();
     toast("Athlete deleted");
   }
@@ -1633,11 +1659,14 @@
     state.clientData.program = program;
     state.clientData.progress = prev || emptyProgress();
     ensureProgressShape(state.clientData.progress);
-    // Also pull any prior progress synced to cloud
-    const cloudProgress = await window.Cloud.getProgress(athlete.id);
-    if (cloudProgress) {
-      // Merge: keep local logs that are newer if any, otherwise take cloud
-      state.clientData.progress = { ...state.clientData.progress, ...cloudProgress };
+    // Only pull from cloud if this is a fresh device for this athlete.
+    // Same-device returns: trust the local progress (avoid clobbering newer local writes).
+    if (!prev) {
+      const cloudProgress = await window.Cloud.getProgress(athlete.id);
+      if (cloudProgress) {
+        state.clientData.progress = cloudProgress;
+        ensureProgressShape(state.clientData.progress);
+      }
     }
     saveClient();
     err.classList.add("hidden");

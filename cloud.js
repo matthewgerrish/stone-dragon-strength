@@ -28,11 +28,12 @@
 
   // -------- Row <-> in-memory shape conversion --------
   function athleteToRow(c, coachId) {
+    if (!c?.id || !c?.inviteCode || !coachId) return null;
     return {
       id: c.id,
-      coach_id: coachId || null,
+      coach_id: coachId,
       name: c.name || "",
-      invite_code: c.inviteCode || c.id,
+      invite_code: c.inviteCode,
       age: c.age || null,
       height_in: c.heightIn || null,
       weight_lb: c.weightLb || null,
@@ -84,23 +85,36 @@
     };
   }
 
-  async function upsertCoach(coachId, name, pinHash) {
+  async function upsertCoach(coachId, name) {
     if (!coachId) return false;
     try {
+      // Don't sync pin_hash — it's local-device-only. Cloud row exists for FK + display.
       const { error } = await sb
         .from("coaches")
-        .upsert({ id: coachId, name: name || "", pin_hash: pinHash || "" });
+        .upsert({ id: coachId, name: name || "", pin_hash: "" });
       if (error) console.warn("[Cloud] upsertCoach error", error.message);
       return !error;
     } catch (e) { console.warn("[Cloud] upsertCoach", e); return false; }
   }
 
   async function upsertAthlete(athlete, coachId) {
+    const row = athleteToRow(athlete, coachId);
+    if (!row) return false; // missing id/inviteCode/coachId — skip
     try {
-      const { error } = await sb.from("athletes").upsert(athleteToRow(athlete, coachId));
+      const { error } = await sb.from("athletes").upsert(row);
       if (error) console.warn("[Cloud] upsertAthlete error", error.message);
       return !error;
     } catch (e) { console.warn("[Cloud] upsertAthlete", e); return false; }
+  }
+
+  async function deleteAthlete(athleteId) {
+    if (!athleteId) return false;
+    try {
+      // FK cascade cleans up athlete_profiles + progress automatically.
+      const { error } = await sb.from("athletes").delete().eq("id", athleteId);
+      if (error) console.warn("[Cloud] deleteAthlete error", error.message);
+      return !error;
+    } catch (e) { console.warn("[Cloud] deleteAthlete", e); return false; }
   }
 
   async function getAthleteByInviteCode(code) {
@@ -148,10 +162,11 @@
   async function upsertAthleteProfile(athleteId, profile) {
     if (!athleteId || !profile) return false;
     try {
+      // Don't sync pw_hash — local-device-only.
       const { error } = await sb.from("athlete_profiles").upsert({
         athlete_id: athleteId,
         display_name: profile.name || "",
-        pw_hash: profile.pwHash || "",
+        pw_hash: "",
       });
       if (error) console.warn("[Cloud] upsertAthleteProfile", error.message);
       return !error;
@@ -174,6 +189,7 @@
     sb,
     upsertCoach,
     upsertAthlete,
+    deleteAthlete,
     getAthleteByInviteCode,
     getAthleteById,
     upsertProgress,
