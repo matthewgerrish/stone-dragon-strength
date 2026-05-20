@@ -27,8 +27,26 @@
       return structuredClone(fallback);
     }
   }
-  function saveTrainer() { localStorage.setItem(KEY_TRAINER, JSON.stringify(state.trainerData)); }
-  function saveClient()  { localStorage.setItem(KEY_CLIENT,  JSON.stringify(state.clientData)); }
+  function saveTrainer() {
+    localStorage.setItem(KEY_TRAINER, JSON.stringify(state.trainerData));
+    // Cloud: debounced push of the client we're currently editing.
+    if (window.Cloud?.enabled && state.currentClientId) {
+      const c = state.trainerData.clients.find((x) => x.id === state.currentClientId);
+      if (c) window.Cloud.debounce(`athlete:${c.id}`, () =>
+        window.Cloud.upsertAthlete(c, state.trainerData.coachId)
+      );
+    }
+  }
+  function saveClient() {
+    localStorage.setItem(KEY_CLIENT, JSON.stringify(state.clientData));
+    // Cloud: debounced push of athlete progress.
+    const athleteId = state.clientData.program?.clientId;
+    if (window.Cloud?.enabled && athleteId && state.clientData.progress) {
+      window.Cloud.debounce(`progress:${athleteId}`, () =>
+        window.Cloud.upsertProgress(athleteId, state.clientData.progress)
+      );
+    }
+  }
 
   function hashPin(pin) {
     let h = 0; const s = "tp:" + pin;
@@ -154,6 +172,11 @@
     if (!c.coachPRs) c.coachPRs = [];
     if (!c.inviteCode) { c.inviteCode = makeInviteCode(); _trainerDataDirty = true; }
   });
+  // Backfill a stable coachId — used as the cloud "coaches" row key.
+  if (!state.trainerData.coachId && state.trainerData.trainer) {
+    state.trainerData.coachId = uid();
+    _trainerDataDirty = true;
+  }
   if (_trainerDataDirty) saveTrainer();
 
   // -------- DOM helpers --------
@@ -294,6 +317,10 @@
       createdAt: Date.now(),
     };
     saveClient();
+    const athleteId = state.clientData.program?.clientId;
+    if (window.Cloud?.enabled && athleteId) {
+      window.Cloud.upsertAthleteProfile(athleteId, state.clientData.profile);
+    }
     err.classList.add("hidden");
     playLoginFlash();
     enterClientPortal();
@@ -349,7 +376,11 @@
     if (pin.length < 4) return showErr(err, "PIN must be at least 4 characters.");
     if (pin !== confirmPin) return showErr(err, "PINs don't match.");
     state.trainerData.trainer = { name, pinHash: hashPin(pin) };
+    if (!state.trainerData.coachId) state.trainerData.coachId = uid();
     saveTrainer();
+    if (window.Cloud?.enabled) {
+      window.Cloud.upsertCoach(state.trainerData.coachId, name, hashPin(pin));
+    }
     err.classList.add("hidden");
     playLoginFlash();
     signIntoTrainer();
@@ -490,6 +521,19 @@
     const now = new Date();
     state.coachCal = { year: now.getFullYear(), month: now.getMonth() };
     renderCoachCalendar();
+    // Pull the latest athlete progress from the cloud (non-blocking).
+    if (window.Cloud?.enabled) pullProgressFromCloud(c);
+  }
+  async function pullProgressFromCloud(c) {
+    if (!window.Cloud?.enabled) return;
+    const cloudProgress = await window.Cloud.getProgress(c.id);
+    if (!cloudProgress) return;
+    c.importedProgress = { ...cloudProgress, syncedAt: Date.now() };
+    localStorage.setItem(KEY_TRAINER, JSON.stringify(state.trainerData));
+    if (state.currentClientId === c.id) {
+      renderClientLogs();
+      renderCoachCalendar();
+    }
   }
   function clientMetaText(c) {
     const parts = [];
@@ -1528,6 +1572,11 @@
     }
 
     if (!match) {
+      // 3. Cloud lookup — works cross-device.
+      if (window.Cloud?.enabled) {
+        loginViaCloud(formatted, err);
+        return;
+      }
       err.textContent = "Code not recognized on this device. If you're on a new device, paste the long access code below.";
       err.classList.remove("hidden");
       return;
@@ -1555,6 +1604,47 @@
       playLoginFlash();
       enterClientPortal();
       toast(`Loaded ${match.name}'s program`);
+    } else {
+      showAthleteSetup();
+    }
+  }
+
+  // -------- Athlete mode: invite-code login via cloud --------
+  async function loginViaCloud(formatted, err) {
+    err.textContent = "Looking up code…";
+    err.classList.remove("hidden");
+    const athlete = await window.Cloud.getAthleteByInviteCode(formatted);
+    if (!athlete) {
+      err.textContent = "Code not recognized. Double-check with your coach, or paste a long access code below.";
+      return;
+    }
+    const program = {
+      kind: "tp-program", v: 2,
+      clientId: athlete.id,
+      trainerName: "",
+      sharedAt: Date.now(),
+      client: {
+        id: athlete.id, name: athlete.name, age: athlete.age, heightIn: athlete.heightIn, weightLb: athlete.weightLb,
+        goals: athlete.goals, weeks: athlete.weeks, schedule: athlete.schedule || {},
+        coachPRs: athlete.coachPRs || [], inviteCode: athlete.inviteCode,
+      },
+    };
+    const prev = state.clientData.program?.clientId === program.clientId ? state.clientData.progress : null;
+    state.clientData.program = program;
+    state.clientData.progress = prev || emptyProgress();
+    ensureProgressShape(state.clientData.progress);
+    // Also pull any prior progress synced to cloud
+    const cloudProgress = await window.Cloud.getProgress(athlete.id);
+    if (cloudProgress) {
+      // Merge: keep local logs that are newer if any, otherwise take cloud
+      state.clientData.progress = { ...state.clientData.progress, ...cloudProgress };
+    }
+    saveClient();
+    err.classList.add("hidden");
+    if (state.clientData.profile) {
+      playLoginFlash();
+      enterClientPortal();
+      toast(`Loaded ${athlete.name}'s program from cloud`);
     } else {
       showAthleteSetup();
     }
