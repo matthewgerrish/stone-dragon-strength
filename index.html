@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="logo-512.png" />
   <link rel="apple-touch-icon" sizes="192x192" href="logo-192.png" />
   <link rel="apple-touch-icon" sizes="512x512" href="logo-512.png" />
-  <link rel="stylesheet" href="styles.css?v=clip1" />
+  <link rel="stylesheet" href="styles.css?v=diet1" />
   <script>window.__SCRIPT_V__ = "clip1";</script>
 </head>
 <body>
@@ -194,14 +194,20 @@
             <h2>Workout Library</h2>
             <p class="muted view-sub">Reusable workout templates — load any one onto a program day in a single click.</p>
           </div>
-          <button class="btn btn-primary" id="btn-new-template">+ New template</button>
+          <div class="library-head-actions">
+            <button class="btn btn-ghost" id="btn-browse-recommended">⭐ Browse recommended</button>
+            <button class="btn btn-primary" id="btn-new-template">+ New template</button>
+          </div>
         </div>
         <div id="template-grid" class="template-grid"></div>
         <div id="template-empty" class="empty-state hidden">
           <div class="empty-emoji">📚</div>
           <h3>No templates yet</h3>
-          <p>Create reusable workouts like "Back Day", "Push Day", or "Conditioning" — then drop them onto any athlete's program day.</p>
-          <button class="btn btn-primary" id="btn-new-template-empty">+ Create your first template</button>
+          <p>Browse our recommended workouts to add proven splits in one tap, or build your own from scratch.</p>
+          <div style="display:flex; gap:0.5em; justify-content:center; flex-wrap:wrap; margin-top:0.6em;">
+            <button class="btn btn-primary" id="btn-browse-recommended-empty">⭐ Browse recommended</button>
+            <button class="btn btn-ghost" id="btn-new-template-empty">+ Build my own</button>
+          </div>
         </div>
       </div>
 
@@ -228,6 +234,7 @@
           <button class="tab" data-tab="calendar">Calendar</button>
           <button class="tab" data-tab="diet">Diet</button>
           <button class="tab" data-tab="prs">PRs</button>
+          <button class="tab" data-tab="sessions">Sessions</button>
           <button class="tab" data-tab="logs">Athlete Logs</button>
         </div>
 
@@ -346,6 +353,19 @@
           </div>
         </div>
 
+        <!-- Sessions (coach) -->
+        <div class="tab-panel" data-tab-panel="sessions">
+          <div class="program-head">
+            <h3>Training Sessions</h3>
+            <div class="library-head-actions">
+              <button class="btn btn-ghost" id="btn-redeem-session">− Redeem session</button>
+              <button class="btn btn-primary" id="btn-add-package">+ Add package</button>
+            </div>
+          </div>
+          <p class="muted" style="margin-bottom:1em">Track sessions your athlete has paid for. Packages: 4, 8, or 16 sessions. The app doesn't collect payment — confirm payment outside the app (Venmo, cash, Stripe link, etc.), then mark the package paid.</p>
+          <div id="session-bank-container"></div>
+        </div>
+
         <!-- Athlete Logs -->
         <div class="tab-panel" data-tab-panel="logs">
           <div class="program-head">
@@ -386,6 +406,7 @@
     <main class="app-main">
       <div class="tabs">
         <button class="tab active" data-ctab="workouts">Workouts</button>
+        <button class="tab" data-ctab="sessions">Sessions</button>
         <button class="tab" data-ctab="prs">PRs</button>
         <button class="tab" data-ctab="progress">My Progress</button>
         <button class="tab" data-ctab="calendar">Calendar</button>
@@ -473,6 +494,16 @@
         </div>
       </div>
 
+      <!-- Sessions (athlete) -->
+      <div class="tab-panel" data-ctab-panel="sessions">
+        <div class="program-head">
+          <h3>My Sessions</h3>
+          <button class="btn btn-primary" id="btn-athlete-request-package">+ Buy package</button>
+        </div>
+        <p class="muted" style="margin-bottom:1em">Your training package balance. Buying a package sends a purchase request to your coach — settle payment with them outside the app, and they'll mark it paid to add the sessions.</p>
+        <div id="athlete-session-container"></div>
+      </div>
+
       <!-- Progress -->
       <div class="tab-panel" data-ctab-panel="progress">
         <div class="card">
@@ -516,8 +547,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=cloud2"></script>
-  <script src="cloud.js?v=cloud2"></script>
-  <script src="app.js?v=cloud2"></script>
+  <script src="config.js?v=diet1"></script>
+  <script src="cloud.js?v=diet1"></script>
+  <script src="app.js?v=diet1"></script>
 </body>
 </html>

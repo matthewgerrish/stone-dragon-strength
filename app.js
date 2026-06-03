@@ -100,10 +100,26 @@
       weeks: [],
       schedule: {},
       coachPRs: [],
+      sessionBank: { packages: [], redemptions: [] },
       inviteCode: makeInviteCode(),
       importedProgress: null,
       createdAt: Date.now(),
     };
+  }
+  function ensureSessionBank(c) {
+    if (!c) return;
+    if (!c.sessionBank || typeof c.sessionBank !== "object") c.sessionBank = { packages: [], redemptions: [] };
+    if (!Array.isArray(c.sessionBank.packages)) c.sessionBank.packages = [];
+    if (!Array.isArray(c.sessionBank.redemptions)) c.sessionBank.redemptions = [];
+  }
+  function sessionBankSummary(c) {
+    ensureSessionBank(c);
+    const granted = c.sessionBank.packages
+      .filter((p) => p.status === "paid")
+      .reduce((n, p) => n + (Number(p.size) || 0), 0);
+    const used = c.sessionBank.redemptions.length;
+    const pendingCount = c.sessionBank.packages.filter((p) => p.status === "pending").length;
+    return { granted, used, remaining: granted - used, pendingCount };
   }
   function makePR(seed) {
     return {
@@ -124,9 +140,27 @@
       days: [makeDay(1), makeDay(2), makeDay(3)],
       diet: {
         notes: "",
-        days: [1,2,3,4,5,6,7].map((d) => ({ day: d, calories: "", protein: "" })),
+        calories: "",
+        protein: "",
       },
     };
+  }
+  function ensureDietShape(week) {
+    if (!week.diet || typeof week.diet !== "object") week.diet = {};
+    if (typeof week.diet.notes !== "string") week.diet.notes = "";
+    // Migration: collapse legacy per-day grid into single weekly target (use first non-empty day).
+    if (week.diet.calories == null && Array.isArray(week.diet.days)) {
+      const firstCal = week.diet.days.find((d) => d.calories !== "" && d.calories != null);
+      week.diet.calories = firstCal ? firstCal.calories : "";
+    }
+    if (week.diet.protein == null && Array.isArray(week.diet.days)) {
+      const firstP = week.diet.days.find((d) => d.protein !== "" && d.protein != null);
+      week.diet.protein = firstP ? firstP.protein : "";
+    }
+    if (week.diet.calories == null) week.diet.calories = "";
+    if (week.diet.protein == null) week.diet.protein = "";
+    // Drop legacy days array now that single-target is the source of truth.
+    delete week.diet.days;
   }
   function makeDay(n, name) {
     return { id: uid(), name: name || `Day ${n}`, exercises: [makeExercise()] };
@@ -174,6 +208,7 @@
   state.trainerData.clients.forEach((c) => {
     if (!c.schedule) c.schedule = {};
     if (!c.coachPRs) c.coachPRs = [];
+    ensureSessionBank(c);
     if (!c.inviteCode) { c.inviteCode = makeInviteCode(); _trainerDataDirty = true; }
   });
   // Backfill a stable coachId — used as the cloud "coaches" row key.
@@ -551,6 +586,7 @@
     if (!c) return renderDashboard();
     if (!c.schedule) c.schedule = {};
     if (!c.coachPRs) c.coachPRs = [];
+    ensureSessionBank(c);
     state.currentClientId = id;
     switchCoachView("client");
     $("#client-name-display").textContent = c.name;
@@ -561,6 +597,7 @@
     renderDiet();
     renderClientLogs();
     renderCoachPRs();
+    renderCoachSessions();
     const now = new Date();
     state.coachCal = { year: now.getFullYear(), month: now.getMonth() };
     renderCoachCalendar();
@@ -647,6 +684,113 @@
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
+  }
+
+  // Curated, original starter templates organized by category. Coach taps a card
+  // to add a copy (with fresh IDs) to their library.
+  const RECOMMENDED_TEMPLATES = {
+    "Push / Chest": [
+      { name: "Heavy Bench Day", focus: "Strength priority on chest press · core finisher",
+        ex: [["Bench Press","5","5"],["Overhead Press","4","6"],["Incline Dumbbell Press","3","10"],["Cable Fly","3","12"],["Triceps Pressdown","3","12"],["Cable Crunch","3","15"]] },
+      { name: "Volume Push", focus: "Hypertrophy for chest, shoulders, triceps · core finisher",
+        ex: [["Incline Bench Press","4","10"],["Seated Dumbbell Press","4","10"],["Cable Crossover","3","12"],["Lateral Raise","4","15"],["Overhead Triceps Extension","3","12"],["Hanging Leg Raise","3","12"]] },
+      { name: "Bodyweight Push", focus: "Travel or gym-free push session · core finisher",
+        ex: [["Push-up","4","AMRAP"],["Dip","4","8"],["Pike Push-up","3","10"],["Diamond Push-up","3","10"],["Plank","3","60s"]] },
+      { name: "Shoulders + Triceps Pump", focus: "Delt/triceps detail work · core finisher",
+        ex: [["Seated Dumbbell Press","4","8"],["Lateral Raise","4","15"],["Rear-Delt Fly","3","15"],["Skull Crusher","3","10"],["Triceps Pressdown","3","12"],["Hollow Hold","3","30s"]] },
+    ],
+    "Back / Pull": [
+      { name: "Heavy Pull Day", focus: "Strength priority on back + biceps · core finisher",
+        ex: [["Deadlift","5","3"],["Barbell Row","4","6"],["Pull-up","4","AMRAP"],["Face Pull","3","15"],["Hammer Curl","3","10"],["Hanging Knee Raise","3","12"]] },
+      { name: "Width-Focused Back", focus: "Lat width + thickness · core finisher",
+        ex: [["Wide-Grip Lat Pulldown","4","10"],["Seated Cable Row","4","10"],["Single-Arm Dumbbell Row","3","10"],["Straight-Arm Pulldown","3","12"],["Barbell Curl","3","10"],["Ab Wheel Rollout","3","10"]] },
+      { name: "Posterior Chain", focus: "Hinge + glute/ham work · anti-rotation core",
+        ex: [["Romanian Deadlift","4","8"],["Hip Thrust","4","10"],["Hyperextension","3","12"],["Leg Curl","3","12"],["Cable Pull-Through","3","12"],["Pallof Press","3","12 each"]] },
+      { name: "Bicep + Back Detail", focus: "Pump-focused back & biceps · core finisher",
+        ex: [["Lat Pulldown","4","12"],["Chest-Supported Row","4","10"],["Preacher Curl","3","10"],["Incline Dumbbell Curl","3","12"],["Reverse Crunch","3","15"]] },
+    ],
+    "Legs": [
+      { name: "Squat Focus", focus: "Quad-dominant strength session · core finisher",
+        ex: [["Back Squat","5","5"],["Front Squat","3","6"],["Walking Lunge","3","12"],["Leg Press","3","10"],["Standing Calf Raise","4","15"],["Weighted Plank","3","45s"]] },
+      { name: "Deadlift Focus", focus: "Hinge-dominant strength session · core finisher",
+        ex: [["Conventional Deadlift","5","3"],["Romanian Deadlift","4","8"],["Bulgarian Split Squat","3","10"],["Leg Curl","3","12"],["Standing Calf Raise","4","15"],["Side Plank","3","30s each"]] },
+      { name: "Hypertrophy Legs", focus: "High-volume leg pump · core finisher",
+        ex: [["Leg Press","5","12"],["Bulgarian Split Squat","4","10"],["Leg Extension","4","12"],["Leg Curl","4","12"],["Walking Lunge","3","12"],["Standing Calf Raise","5","15"],["Decline Sit-up","3","15"]] },
+      { name: "Glute + Hamstring Day", focus: "Posterior leg emphasis · core finisher",
+        ex: [["Hip Thrust","5","8"],["Romanian Deadlift","4","10"],["Glute Ham Raise","3","8"],["Cable Kickback","3","12 each"],["Seated Leg Curl","4","12"],["Hanging Leg Raise","3","12"]] },
+    ],
+    "Conditioning + Core": [
+      { name: "EMOM Finisher", focus: "10-min metabolic finisher after main lift",
+        ex: [["Burpee","1","10"],["Kettlebell Swing","1","15"],["Box Jump","1","10"],["Row","1","200m"]] },
+      { name: "Heavy Carry + Core", focus: "Grip + bracing via loaded carries",
+        ex: [["Farmer Carry","4","60 ft"],["Sandbag Carry","4","40 ft"],["Sled Push","4","40 ft"],["Plank","3","60s"],["Russian Twist","3","20"]] },
+      { name: "Cardio + Core Mix", focus: "Mixed-modal conditioning + core",
+        ex: [["Assault Bike Sprint","5","30s"],["Kettlebell Swing","4","20"],["Row","5","250m"],["Hollow Hold","3","30s"]] },
+      { name: "Core Focus", focus: "Dedicated 20-min core session",
+        ex: [["Hanging Leg Raise","4","12"],["Cable Crunch","4","15"],["Ab Wheel Rollout","3","10"],["Pallof Press","3","12 each"],["Plank","3","60s"],["Side Plank","3","30s each"]] },
+    ],
+  };
+
+  function openRecommendedTemplatesModal() {
+    const categories = Object.keys(RECOMMENDED_TEMPLATES);
+    let activeCat = categories[0];
+    const renderBody = () => {
+      const chips = categories.map((c) =>
+        `<button class="rec-cat-chip${c === activeCat ? " active" : ""}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`
+      ).join("");
+      const cards = RECOMMENDED_TEMPLATES[activeCat].map((t, i) => {
+        const exList = t.ex.map((e) => `<strong>${escapeHtml(e[0])}</strong> ${escapeHtml(e[1])}×${escapeHtml(e[2])}`).join(" · ");
+        return `
+          <div class="rec-card">
+            <div class="rec-card-head">
+              <div>
+                <h5>${escapeHtml(t.name)}</h5>
+                <div class="rec-meta">${escapeHtml(t.focus)} · ${t.ex.length} exercise${t.ex.length === 1 ? "" : "s"}</div>
+              </div>
+              <button class="rec-add" data-cat="${escapeHtml(activeCat)}" data-idx="${i}">+ Add</button>
+            </div>
+            <div class="rec-ex-list">${exList}</div>
+          </div>`;
+      }).join("");
+      return `
+        <p class="muted" style="margin-top:-0.3em">Tap <strong>+ Add</strong> to copy a workout into your library — edit it from there anytime.</p>
+        <div class="rec-cat-chips">${chips}</div>
+        <div class="rec-list">${cards}</div>`;
+    };
+    openModal({
+      title: "Recommended workouts",
+      body: renderBody(),
+      actions: [{ label: "Done", className: "btn btn-ghost", onClick: closeModal }],
+    });
+    const wireBody = () => {
+      $("#modal-body").querySelectorAll(".rec-cat-chip").forEach((chip) => {
+        chip.addEventListener("click", () => {
+          activeCat = chip.dataset.cat;
+          $("#modal-body").innerHTML = renderBody();
+          wireBody();
+        });
+      });
+      $("#modal-body").querySelectorAll(".rec-add").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const t = RECOMMENDED_TEMPLATES[btn.dataset.cat][Number(btn.dataset.idx)];
+          if (!t) return;
+          const exercises = t.ex.map(([name, sets, reps]) => ({
+            name, sets, currentReps: reps,
+            notes: t.focus,
+          }));
+          const tpl = makeWorkoutTemplate(t.name, exercises);
+          tpl.focus = t.focus;
+          state.trainerData.workoutTemplates.push(tpl);
+          saveTrainer();
+          renderWorkoutLibrary();
+          btn.textContent = "✓ Added";
+          btn.classList.add("added");
+          btn.disabled = true;
+          toast(`Added "${t.name}" to library 🏆`);
+        });
+      });
+    };
+    wireBody();
   }
 
   function renderWorkoutLibrary() {
@@ -1172,7 +1316,8 @@
               : phase.label === "Peak"
               ? "Maintenance. Prioritize sleep, hydration, recovery."
               : "Eat at maintenance. Protein 0.8 g per lb bodyweight minimum.",
-            days: [1,2,3,4,5,6,7].map((d) => ({ day: d, calories: "", protein: "" })),
+            calories: "",
+            protein: "",
           },
         };
         weeks.push(week);
@@ -1192,60 +1337,47 @@
     container.innerHTML = "";
     if (c.weeks.length === 0) { show(empty); return; }
     hide(empty);
+    c.weeks.forEach((w) => ensureDietShape(w));
     c.weeks.forEach((week, idx) => container.appendChild(renderDietWeekCard(week, idx)));
   }
   function renderDietWeekCard(week, wIdx) {
+    ensureDietShape(week);
     const card = document.createElement("div");
     card.className = "week-card";
     if (wIdx === 0) card.classList.add("open");
-    const totals = computeWeekTotals(week);
     const head = document.createElement("div");
     head.className = "week-head";
+    const summary = () => `${week.diet.calories || "—"} kcal · ${week.diet.protein ? week.diet.protein + "g" : "—g"} protein /day`;
     head.innerHTML = `
       <div>
         <h4>${week.phaseLabel ? `<span class="phase-badge">${escapeHtml(week.phaseLabel)}</span>` : ""}${escapeHtml(week.label)} — nutrition</h4>
-        <div class="week-info">Avg ${totals.avgCalories || "—"} kcal/day · ${totals.avgProtein || "—"}g protein/day</div>
+        <div class="week-info">${summary()}</div>
       </div>
       <div class="week-head-right"><span class="week-toggle">▾</span></div>`;
     head.addEventListener("click", () => card.classList.toggle("open"));
     const body = document.createElement("div");
     body.className = "diet-week-body";
     body.innerHTML = `
-      <div class="diet-days"></div>
+      <div class="diet-single">
+        <label>Daily calorie target
+          <input type="number" min="0" placeholder="e.g. 2500" data-field="calories" />
+        </label>
+        <label>Daily protein target (g)
+          <input type="number" min="0" placeholder="e.g. 180" data-field="protein" />
+        </label>
+      </div>
       <div class="diet-notes">
         <label>Nutrition notes for this week
           <textarea placeholder="Meal timing, supplements, hydration…"></textarea>
         </label>
-      </div>
-      <div class="diet-week-totals">
-        <div><span class="total-label">Weekly avg calories:</span><strong>${totals.avgCalories || "—"}</strong></div>
-        <div><span class="total-label">Weekly avg protein:</span><strong>${totals.avgProtein ? totals.avgProtein + "g" : "—"}</strong></div>
       </div>`;
-    const daysGrid = body.querySelector(".diet-days");
-    week.diet.days.forEach((d, i) => {
-      const dCard = document.createElement("div");
-      dCard.className = "diet-day-card";
-      dCard.innerHTML = `
-        <h5>${DAY_LABELS[i] || "Day " + (i + 1)}</h5>
-        <div class="diet-inputs">
-          <label>Calories<input type="number" min="0" placeholder="kcal" data-field="calories" /></label>
-          <label>Protein (g)<input type="number" min="0" placeholder="g" data-field="protein" /></label>
-        </div>`;
-      const calInp = dCard.querySelector('[data-field="calories"]');
-      const protInp = dCard.querySelector('[data-field="protein"]');
-      calInp.value = d.calories; protInp.value = d.protein;
-      const updateTotals = () => {
-        const t = computeWeekTotals(week);
-        body.querySelector(".diet-week-totals").innerHTML = `
-          <div><span class="total-label">Weekly avg calories:</span><strong>${t.avgCalories || "—"}</strong></div>
-          <div><span class="total-label">Weekly avg protein:</span><strong>${t.avgProtein ? t.avgProtein + "g" : "—"}</strong></div>`;
-        head.querySelector(".week-info").textContent =
-          `Avg ${t.avgCalories || "—"} kcal/day · ${t.avgProtein || "—"}g protein/day`;
-      };
-      calInp.addEventListener("input", () => { d.calories = calInp.value; saveTrainer(); updateTotals(); });
-      protInp.addEventListener("input", () => { d.protein = protInp.value; saveTrainer(); updateTotals(); });
-      daysGrid.appendChild(dCard);
-    });
+    const calInp = body.querySelector('[data-field="calories"]');
+    const protInp = body.querySelector('[data-field="protein"]');
+    calInp.value = week.diet.calories;
+    protInp.value = week.diet.protein;
+    const refreshSummary = () => { head.querySelector(".week-info").textContent = summary(); };
+    calInp.addEventListener("input", () => { week.diet.calories = calInp.value; saveTrainer(); refreshSummary(); });
+    protInp.addEventListener("input", () => { week.diet.protein = protInp.value; saveTrainer(); refreshSummary(); });
     const notes = body.querySelector("textarea");
     notes.value = week.diet.notes;
     notes.addEventListener("input", () => { week.diet.notes = notes.value; saveTrainer(); });
@@ -1253,10 +1385,13 @@
     return card;
   }
   function computeWeekTotals(week) {
-    const cv = week.diet.days.map((d) => Number(d.calories)).filter((n) => !isNaN(n) && n > 0);
-    const pv = week.diet.days.map((d) => Number(d.protein)).filter((n) => !isNaN(n) && n > 0);
-    const avg = (a) => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : 0;
-    return { avgCalories: avg(cv), avgProtein: avg(pv) };
+    ensureDietShape(week);
+    const cal = Number(week.diet.calories);
+    const prot = Number(week.diet.protein);
+    return {
+      avgCalories: isNaN(cal) || cal <= 0 ? 0 : cal,
+      avgProtein: isNaN(prot) || prot <= 0 ? 0 : prot,
+    };
   }
 
   // -------- Calendar shared helpers --------
@@ -1606,6 +1741,7 @@
     const empty = $("#coach-pr-empty");
     container.innerHTML = "";
     if (!c.coachPRs) c.coachPRs = [];
+    ensureSessionBank(c);
     const coachOwn = c.coachPRs.map((p) => ({ ...p, _author: "coach" }));
     const athleteImported = (c.importedProgress?.personalRecords || []).map((p) => ({ ...p, _author: "athlete" }));
     const all = coachOwn.concat(athleteImported);
@@ -1712,6 +1848,7 @@
             if (side === "coach") {
               const c = currentClient();
               if (!c.coachPRs) c.coachPRs = [];
+              ensureSessionBank(c);
               c.coachPRs.push(pr);
               saveTrainer();
               closeModal();
@@ -1738,6 +1875,344 @@
     }, 50);
   }
 
+  // -------- Session bank (athlete side) --------
+  function renderAthleteSessions() {
+    const container = $("#athlete-session-container"); if (!container) return;
+    container.innerHTML = "";
+    const prog = state.clientData.program;
+    if (!prog?.client) return;
+    ensureSessionBank(prog.client);
+    if (!state.clientData.progress.packageRequests) state.clientData.progress.packageRequests = [];
+
+    const sum = sessionBankSummary(prog.client);
+    const pending = state.clientData.progress.packageRequests || [];
+
+    const balance = document.createElement("div");
+    balance.className = "card session-balance-card";
+    balance.innerHTML = `
+      <div class="session-balance">
+        <div class="session-balance-num">${sum.remaining}</div>
+        <div class="session-balance-label">sessions remaining</div>
+      </div>
+      <div class="session-balance-stats">
+        <div><span class="session-stat-num">${sum.granted}</span><span class="session-stat-lbl">purchased</span></div>
+        <div><span class="session-stat-num">${sum.used}</span><span class="session-stat-lbl">redeemed</span></div>
+        <div><span class="session-stat-num">${pending.length}</span><span class="session-stat-lbl">requested</span></div>
+      </div>`;
+    container.appendChild(balance);
+
+    // Quick-buy package picker
+    const buyCard = document.createElement("div");
+    buyCard.className = "card";
+    buyCard.innerHTML = `<h4 style="margin-top:0">Buy more sessions</h4>
+      <p class="muted" style="font-size:0.85rem">Pick a package — your coach gets a request and confirms after you settle payment with them outside the app.</p>
+      <div class="pkg-size-grid">
+        ${PACKAGE_SIZES.map((s) => `<button class="pkg-size-btn" type="button" data-buy-size="${s}">
+          <span class="pkg-size-num">${s}</span><span class="pkg-size-lbl">sessions</span>
+        </button>`).join("")}
+      </div>`;
+    container.appendChild(buyCard);
+    buyCard.querySelectorAll("[data-buy-size]").forEach((btn) => {
+      btn.addEventListener("click", () => requestPackage(Number(btn.dataset.buySize)));
+    });
+
+    // Pending requests (athlete side)
+    if (pending.length) {
+      const reqCard = document.createElement("div");
+      reqCard.className = "card";
+      reqCard.innerHTML = `<h4 style="margin-top:0">Your pending requests</h4>
+        <p class="muted" style="font-size:0.85rem">Waiting for your coach to confirm payment. Tap <strong>Send progress</strong> in the header to deliver.</p>`;
+      pending.forEach((req) => {
+        const row = document.createElement("div");
+        row.className = "pending-request-row";
+        row.innerHTML = `
+          <div><strong>${escapeHtml(String(req.size))}-session package</strong>
+            <span class="muted"> · ${escapeHtml(req.requestedAt ? new Date(req.requestedAt).toLocaleDateString() : "")}</span></div>
+          <button class="btn btn-ghost btn-sm" data-cancel-req="${escapeHtml(req.id)}">Cancel</button>`;
+        reqCard.appendChild(row);
+      });
+      container.appendChild(reqCard);
+      reqCard.querySelectorAll("[data-cancel-req]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.clientData.progress.packageRequests =
+            state.clientData.progress.packageRequests.filter((r) => r.id !== btn.dataset.cancelReq);
+          saveClient();
+          renderAthleteSessions();
+          toast("Request cancelled");
+        });
+      });
+    }
+
+    // Redemption history (read-only view of coach's record)
+    const redemptions = prog.client.sessionBank.redemptions || [];
+    const redCard = document.createElement("div");
+    redCard.className = "card";
+    redCard.innerHTML = `<h4 style="margin-top:0">Recent sessions</h4>`;
+    if (!redemptions.length) {
+      redCard.insertAdjacentHTML("beforeend", `<p class="muted">No sessions logged yet. Your coach marks each session after it happens.</p>`);
+    } else {
+      [...redemptions].sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 12).forEach((r) => {
+        const row = document.createElement("div");
+        row.className = "session-redeem-row";
+        row.innerHTML = `<div><strong>${escapeHtml(r.date || "")}</strong>${r.note ? ` · <span class="muted">${escapeHtml(r.note)}</span>` : ""}</div>`;
+        redCard.appendChild(row);
+      });
+    }
+    container.appendChild(redCard);
+  }
+
+  function requestPackage(size) {
+    if (!PACKAGE_SIZES.includes(size)) return;
+    if (!state.clientData.progress.packageRequests) state.clientData.progress.packageRequests = [];
+    state.clientData.progress.packageRequests.push({
+      id: uid(), size, requestedAt: Date.now(),
+    });
+    saveClient();
+    renderAthleteSessions();
+    toast(`Requested ${size}-session package. Send progress to coach.`);
+  }
+
+  function openAthleteRequestPackageModal() {
+    const sizeOpts = PACKAGE_SIZES.map((s) =>
+      `<button class="pkg-size-btn" type="button" data-buy-size="${s}">
+        <span class="pkg-size-num">${s}</span><span class="pkg-size-lbl">sessions</span>
+      </button>`
+    ).join("");
+    openModal({
+      title: "Buy more sessions",
+      body: `
+        <p class="muted" style="margin-top:-0.4em">Pick a package size. Tapping a card sends a purchase request to your coach. The app doesn't process payment — pay your coach directly (Venmo, cash, etc.) and they'll mark it paid.</p>
+        <div class="pkg-size-grid">${sizeOpts}</div>`,
+      actions: [{ label: "Close", className: "btn btn-ghost", onClick: closeModal }],
+    });
+    $("#modal-body").querySelectorAll("[data-buy-size]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        requestPackage(Number(btn.dataset.buySize));
+        closeModal();
+      });
+    });
+  }
+
+  // -------- Session bank (coach side) --------
+  const PACKAGE_SIZES = [4, 8, 16];
+
+  function renderCoachSessions() {
+    const c = currentClient(); if (!c) return;
+    ensureSessionBank(c);
+    const container = $("#session-bank-container"); if (!container) return;
+    container.innerHTML = "";
+
+    const sum = sessionBankSummary(c);
+    const importedRequests = c.importedProgress?.packageRequests || [];
+
+    // Balance card
+    const balance = document.createElement("div");
+    balance.className = "card session-balance-card";
+    balance.innerHTML = `
+      <div class="session-balance">
+        <div class="session-balance-num">${sum.remaining}</div>
+        <div class="session-balance-label">sessions remaining</div>
+      </div>
+      <div class="session-balance-stats">
+        <div><span class="session-stat-num">${sum.granted}</span><span class="session-stat-lbl">purchased</span></div>
+        <div><span class="session-stat-num">${sum.used}</span><span class="session-stat-lbl">redeemed</span></div>
+        <div><span class="session-stat-num">${sum.pendingCount}</span><span class="session-stat-lbl">pending</span></div>
+      </div>`;
+    container.appendChild(balance);
+
+    // Pending athlete requests (from imported progress)
+    if (importedRequests.length) {
+      const reqCard = document.createElement("div");
+      reqCard.className = "card";
+      reqCard.innerHTML = `<h4 style="margin-top:0">Athlete purchase requests</h4>
+        <p class="muted" style="font-size:0.85rem">Confirm payment outside the app (Venmo / cash / Stripe link), then tap Approve to grant the sessions.</p>`;
+      importedRequests.forEach((req) => {
+        // Skip if already approved (matched by request id in packages)
+        if (c.sessionBank.packages.some((p) => p.requestId === req.id)) return;
+        const row = document.createElement("div");
+        row.className = "pending-request-row";
+        row.innerHTML = `
+          <div>
+            <strong>${escapeHtml(String(req.size))}-session package</strong>
+            <span class="muted"> · requested ${escapeHtml(req.requestedAt ? new Date(req.requestedAt).toLocaleDateString() : "")}</span>
+            ${req.note ? `<div class="muted" style="font-size:0.85rem">${escapeHtml(req.note)}</div>` : ""}
+          </div>
+          <div class="pending-request-actions">
+            <button class="btn btn-ghost btn-sm" data-decline="${escapeHtml(req.id)}">Decline</button>
+            <button class="btn btn-primary btn-sm" data-approve="${escapeHtml(req.id)}" data-size="${escapeHtml(String(req.size))}">Approve &amp; mark paid</button>
+          </div>`;
+        reqCard.appendChild(row);
+      });
+      // Only show card if there were unapproved requests rendered
+      if (reqCard.querySelector(".pending-request-row")) {
+        container.appendChild(reqCard);
+        reqCard.querySelectorAll("[data-approve]").forEach((btn) => {
+          btn.addEventListener("click", () => approvePackageRequest(btn.dataset.approve, Number(btn.dataset.size)));
+        });
+        reqCard.querySelectorAll("[data-decline]").forEach((btn) => {
+          btn.addEventListener("click", () => declinePackageRequest(btn.dataset.decline));
+        });
+      }
+    }
+
+    // Package history
+    const pkgCard = document.createElement("div");
+    pkgCard.className = "card";
+    pkgCard.innerHTML = `<h4 style="margin-top:0">Packages</h4>`;
+    if (!c.sessionBank.packages.length) {
+      pkgCard.insertAdjacentHTML("beforeend", `<p class="muted">No packages yet. Tap <strong>+ Add package</strong> when you've collected payment.</p>`);
+    } else {
+      const sorted = [...c.sessionBank.packages].sort((a, b) => (b.paidAt || b.addedAt || 0) - (a.paidAt || a.addedAt || 0));
+      sorted.forEach((pkg) => {
+        const dateStr = pkg.paidAt ? new Date(pkg.paidAt).toLocaleDateString() : "—";
+        const row = document.createElement("div");
+        row.className = "session-pkg-row";
+        row.innerHTML = `
+          <div>
+            <strong>${escapeHtml(String(pkg.size))}-session package</strong>
+            <span class="muted"> · ${escapeHtml(dateStr)}</span>
+            ${pkg.note ? `<div class="muted" style="font-size:0.85rem">${escapeHtml(pkg.note)}</div>` : ""}
+          </div>
+          <div class="session-pkg-row-right">
+            <span class="status-pill status-${escapeHtml(pkg.status || "paid")}">${escapeHtml(pkg.status || "paid")}</span>
+            <button class="btn-delete-mini" data-del="${escapeHtml(pkg.id)}" title="Remove">×</button>
+          </div>`;
+        pkgCard.appendChild(row);
+      });
+    }
+    container.appendChild(pkgCard);
+    pkgCard.querySelectorAll("[data-del]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (!window.confirm("Remove this package? Redemptions are kept.")) return;
+        c.sessionBank.packages = c.sessionBank.packages.filter((p) => p.id !== btn.dataset.del);
+        saveTrainer(); renderCoachSessions();
+      });
+    });
+
+    // Redemption history
+    const redCard = document.createElement("div");
+    redCard.className = "card";
+    redCard.innerHTML = `<h4 style="margin-top:0">Redemption history</h4>`;
+    if (!c.sessionBank.redemptions.length) {
+      redCard.insertAdjacentHTML("beforeend", `<p class="muted">No redemptions yet. Tap <strong>− Redeem session</strong> after each completed session.</p>`);
+    } else {
+      const sorted = [...c.sessionBank.redemptions].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+      sorted.forEach((r) => {
+        const row = document.createElement("div");
+        row.className = "session-redeem-row";
+        row.innerHTML = `
+          <div><strong>${escapeHtml(r.date || "")}</strong>${r.note ? ` · <span class="muted">${escapeHtml(r.note)}</span>` : ""}</div>
+          <button class="btn-delete-mini" data-del="${escapeHtml(r.id)}" title="Undo">×</button>`;
+        redCard.appendChild(row);
+      });
+    }
+    container.appendChild(redCard);
+    redCard.querySelectorAll("[data-del]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (!window.confirm("Undo this redemption?")) return;
+        c.sessionBank.redemptions = c.sessionBank.redemptions.filter((r) => r.id !== btn.dataset.del);
+        saveTrainer(); renderCoachSessions();
+      });
+    });
+  }
+
+  function openAddPackageModal() {
+    const c = currentClient(); if (!c) return;
+    const sizeOpts = PACKAGE_SIZES.map((s) =>
+      `<button class="pkg-size-btn" type="button" data-size="${s}">
+        <span class="pkg-size-num">${s}</span>
+        <span class="pkg-size-lbl">sessions</span>
+      </button>`
+    ).join("");
+    openModal({
+      title: "Add training package",
+      body: `
+        <p class="muted" style="margin-top:-0.4em">Confirm payment with the athlete first (Venmo, cash, Stripe link, etc.), then add the package here.</p>
+        <div class="pkg-size-grid">${sizeOpts}</div>
+        <label>Note (optional)
+          <input type="text" id="pkg-note" placeholder="e.g. Venmo $200 · ref #1234" />
+        </label>
+        <p id="pkg-error" class="error hidden"></p>`,
+      actions: [{ label: "Cancel", className: "btn btn-ghost", onClick: closeModal }],
+    });
+    let selectedSize = null;
+    $("#modal-body").querySelectorAll(".pkg-size-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        selectedSize = Number(btn.dataset.size);
+        $("#modal-body").querySelectorAll(".pkg-size-btn").forEach((b) => b.classList.toggle("selected", b === btn));
+        const note = $("#pkg-note").value.trim();
+        const pkg = {
+          id: uid(), size: selectedSize, status: "paid",
+          addedAt: Date.now(), paidAt: Date.now(), note,
+        };
+        ensureSessionBank(c);
+        c.sessionBank.packages.push(pkg);
+        saveTrainer();
+        renderCoachSessions();
+        closeModal();
+        toast(`Added ${selectedSize}-session package ✓`);
+      });
+    });
+  }
+
+  function openRedeemSessionModal() {
+    const c = currentClient(); if (!c) return;
+    ensureSessionBank(c);
+    const sum = sessionBankSummary(c);
+    if (sum.remaining <= 0) {
+      if (!window.confirm("This athlete has no sessions remaining. Redeem anyway (creates a negative balance)?")) return;
+    }
+    openModal({
+      title: "Redeem a session",
+      body: `
+        <p class="muted" style="margin-top:-0.4em">Counts one session against the athlete's balance. ${sum.remaining} remaining before this redemption.</p>
+        <label>Date<input type="date" id="redeem-date" value="${todayISO()}" /></label>
+        <label>Note (optional)<input type="text" id="redeem-note" placeholder="e.g. Heavy lower body session" /></label>`,
+      actions: [
+        { label: "Cancel", className: "btn btn-ghost", onClick: closeModal },
+        { label: "Redeem", className: "btn btn-primary", onClick: () => {
+            const date = $("#redeem-date").value || todayISO();
+            const note = $("#redeem-note").value.trim();
+            c.sessionBank.redemptions.push({ id: uid(), date, note });
+            saveTrainer();
+            renderCoachSessions();
+            closeModal();
+            toast("Session redeemed ✓");
+          },
+        },
+      ],
+    });
+  }
+
+  function approvePackageRequest(reqId, size) {
+    const c = currentClient(); if (!c) return;
+    ensureSessionBank(c);
+    if (!PACKAGE_SIZES.includes(size)) size = 4;
+    c.sessionBank.packages.push({
+      id: uid(), size, status: "paid",
+      addedAt: Date.now(), paidAt: Date.now(),
+      requestId: reqId,
+      note: "Approved from athlete request",
+    });
+    saveTrainer();
+    renderCoachSessions();
+    toast(`Approved · ${size} sessions added`);
+  }
+
+  function declinePackageRequest(reqId) {
+    const c = currentClient(); if (!c) return;
+    ensureSessionBank(c);
+    // Mark as cancelled by adding a placeholder so it doesn't reappear after re-import.
+    c.sessionBank.packages.push({
+      id: uid(), size: 0, status: "cancelled",
+      addedAt: Date.now(), requestId: reqId,
+      note: "Athlete request declined",
+    });
+    saveTrainer();
+    renderCoachSessions();
+    toast("Request declined");
+  }
+
   // -------- Share / import --------
   function shareClient() {
     const c = currentClient(); if (!c) return;
@@ -1750,6 +2225,7 @@
         id: c.id, name: c.name, age: c.age, heightIn: c.heightIn, weightLb: c.weightLb,
         goals: c.goals, weeks: c.weeks, schedule: c.schedule || {},
         coachPRs: c.coachPRs || [],
+        sessionBank: c.sessionBank || { packages: [], redemptions: [] },
         inviteCode: c.inviteCode || "",
       },
     };
@@ -1863,6 +2339,7 @@
         id: match.id, name: match.name, age: match.age, heightIn: match.heightIn, weightLb: match.weightLb,
         goals: match.goals, weeks: match.weeks, schedule: match.schedule || {},
         coachPRs: match.coachPRs || [], inviteCode: match.inviteCode,
+        sessionBank: match.sessionBank || { packages: [], redemptions: [] },
       },
     };
     // Preserve progress if same client id has been loaded before
@@ -1898,6 +2375,7 @@
         id: athlete.id, name: athlete.name, age: athlete.age, heightIn: athlete.heightIn, weightLb: athlete.weightLb,
         goals: athlete.goals, weeks: athlete.weeks, schedule: athlete.schedule || {},
         coachPRs: athlete.coachPRs || [], inviteCode: athlete.inviteCode,
+        sessionBank: athlete.sessionBank || { packages: [], redemptions: [] },
       },
     };
     const prev = state.clientData.program?.clientId === program.clientId ? state.clientData.progress : null;
@@ -1950,13 +2428,14 @@
       err.classList.remove("hidden");
     }
   }
-  function emptyProgress() { return { exerciseLogs: {}, bodyweightLog: [], feedback: "", dayCompletions: {}, personalRecords: [] }; }
+  function emptyProgress() { return { exerciseLogs: {}, bodyweightLog: [], feedback: "", dayCompletions: {}, personalRecords: [], packageRequests: [] }; }
   function ensureProgressShape(p) {
     if (!p.exerciseLogs) p.exerciseLogs = {};
     if (!p.bodyweightLog) p.bodyweightLog = [];
     if (p.feedback == null) p.feedback = "";
     if (!p.dayCompletions) p.dayCompletions = {};
     if (!p.personalRecords) p.personalRecords = [];
+    if (!p.packageRequests) p.packageRequests = [];
     return p;
   }
   function isDayChecked(dayId) {
@@ -1997,6 +2476,7 @@
     renderClientDiet();
     renderClientProgress();
     renderAthletePRs();
+    renderAthleteSessions();
   }
   function exitClient() {
     state.mode = null;
@@ -2484,34 +2964,36 @@
       return;
     }
     prog.client.weeks.forEach((week, idx) => {
+      ensureDietShape(week);
       const card = document.createElement("div");
       card.className = "week-card";
       if (week.phaseLabel) card.classList.add("phase-card");
       if (idx === 0) card.classList.add("open");
-      const totals = computeWeekTotals(week);
+      const cal = week.diet.calories || "—";
+      const prot = week.diet.protein ? week.diet.protein + "g" : "—";
       const head = document.createElement("div");
       head.className = "week-head";
       head.innerHTML = `
         <div>
           <h4>${week.phaseLabel ? `<span class="phase-badge">${escapeHtml(week.phaseLabel)}</span>` : ""}${escapeHtml(week.label)}</h4>
-          <div class="week-info">Avg ${totals.avgCalories || "—"} kcal · ${totals.avgProtein || "—"}g protein /day</div>
+          <div class="week-info">${escapeHtml(cal)} kcal · ${escapeHtml(prot)} protein /day</div>
         </div>
         <div class="week-head-right"><span class="week-toggle">▾</span></div>`;
       head.addEventListener("click", () => card.classList.toggle("open"));
       const body = document.createElement("div");
       body.className = "diet-week-body";
-      const list = document.createElement("div");
-      list.style.display = "flex"; list.style.flexDirection = "column"; list.style.gap = "0.4em";
-      week.diet.days.forEach((d, i) => {
-        const row = document.createElement("div");
-        row.className = "client-diet-day";
-        row.innerHTML = `
-          <span class="day-name">${DAY_LABELS[i] || "Day " + (i + 1)}</span>
-          <span class="target">Calories: <strong>${escapeHtml(d.calories || "—")}</strong></span>
-          <span class="target">Protein: <strong>${escapeHtml(d.protein ? d.protein + "g" : "—")}</strong></span>`;
-        list.appendChild(row);
-      });
-      body.appendChild(list);
+      const targets = document.createElement("div");
+      targets.className = "client-diet-targets";
+      targets.innerHTML = `
+        <div class="client-diet-target">
+          <div class="target-num">${escapeHtml(cal)}</div>
+          <div class="target-lbl">kcal / day</div>
+        </div>
+        <div class="client-diet-target">
+          <div class="target-num">${escapeHtml(prot)}</div>
+          <div class="target-lbl">protein / day</div>
+        </div>`;
+      body.appendChild(targets);
       if (week.diet.notes) {
         const notes = document.createElement("div");
         notes.className = "client-instructions";
@@ -2575,6 +3057,7 @@
         feedback: state.clientData.progress.feedback || "",
         dayCompletions: state.clientData.progress.dayCompletions || {},
         personalRecords: state.clientData.progress.personalRecords || [],
+        packageRequests: state.clientData.progress.packageRequests || [],
       },
     };
     const code = encodeData(payload);
@@ -2673,6 +3156,8 @@
     });
     $("#btn-new-template")?.addEventListener("click", () => openTemplateEditor(null));
     $("#btn-new-template-empty")?.addEventListener("click", () => openTemplateEditor(null));
+    $("#btn-browse-recommended")?.addEventListener("click", openRecommendedTemplatesModal);
+    $("#btn-browse-recommended-empty")?.addEventListener("click", openRecommendedTemplatesModal);
     $("#btn-edit-client").addEventListener("click", editClient);
     $("#btn-delete-client").addEventListener("click", deleteClientPrompt);
     $("#btn-add-week").addEventListener("click", addWeek);
@@ -2684,6 +3169,9 @@
     $("#btn-import-progress-empty").addEventListener("click", importProgressPrompt);
     $("#btn-coach-add-pr").addEventListener("click", () => openAddPRModal("coach"));
     $("#btn-athlete-add-pr").addEventListener("click", () => openAddPRModal("athlete"));
+    $("#btn-add-package")?.addEventListener("click", openAddPackageModal);
+    $("#btn-redeem-session")?.addEventListener("click", openRedeemSessionModal);
+    $("#btn-athlete-request-package")?.addEventListener("click", openAthleteRequestPackageModal);
     $("#btn-regen-invite").addEventListener("click", regenerateInviteCode);
     $("#btn-copy-invite").addEventListener("click", copyInviteCode);
 
