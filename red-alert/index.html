@@ -182,11 +182,6 @@
   #gpsArrow svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 26px rgba(255,45,75,.9))}
   #gpsArrow .arrowfill{fill:var(--crimson);animation:arrowpulse 1s ease-in-out infinite}
   @keyframes arrowpulse{50%{fill:#ff6f80}}
-  #gpsInstr{
-    font-family:var(--sans);font-weight:800;font-size:clamp(22px,6.4vw,34px);
-    letter-spacing:.05em;text-transform:uppercase;color:#fff;
-    text-shadow:0 0 22px rgba(255,45,75,.85);text-wrap:balance;max-width:92vw;
-  }
   .gps-data{display:flex;gap:clamp(16px,7vw,54px);font-family:var(--mono)}
   .gps-data .k{font-size:9px;letter-spacing:.2em;color:#c77;text-transform:uppercase;display:block;margin-bottom:4px}
   .gps-data .v{font-size:clamp(19px,5.5vw,26px);color:var(--amber);font-variant-numeric:tabular-nums}
@@ -243,7 +238,7 @@
       </g>
     </svg>
     <div class="reactor-label">
-      <div id="coreWord">ARM</div>
+      <div id="coreWord">GO</div>
       <div id="coreSub">tap to engage</div>
     </div>
   </div>
@@ -269,11 +264,8 @@
         </svg>
       </div>
     </div>
-    <div id="gpsInstr">PROCEED SOUTH TO REFERRAL</div>
     <div class="gps-data">
       <div><span class="k">Heading</span><span class="v" id="gpsHead">S</span></div>
-      <div><span class="k">Range</span><span class="v" id="gpsRange">2.4 MI</span></div>
-      <div><span class="k">ETA</span><span class="v" id="gpsEta">20s</span></div>
     </div>
     <div class="gps-hint">tap anywhere to power down</div>
   </div>
@@ -392,39 +384,19 @@
   function startGps(){
     var arrow = document.getElementById('gpsArrow');
     var head = document.getElementById('gpsHead');
-    var instr = document.getElementById('gpsInstr');
-    var rangeEl = document.getElementById('gpsRange');
-    var etaEl = document.getElementById('gpsEta');
 
     // Phase 1 — point SOUTH (arrow default points up/north; +180deg -> south)
     arrow.style.transform = 'rotate(180deg)';
     head.textContent = 'S';
-    instr.textContent = 'PROCEED SOUTH TO REFERRAL';
 
     // Phase 2 — after 10s, swing to WEST (+270deg from north)
     gpsTimers.push(setTimeout(function(){
       arrow.style.transform = 'rotate(270deg)';
       head.textContent = 'W';
-      instr.textContent = 'NOW HEAD WEST — ALMOST THERE';
     }, 10000));
 
-    // Range + ETA countdown across the full 20s
-    var eta = 20, range = 2.4;
-    etaEl.textContent = eta + 's';
-    rangeEl.textContent = range.toFixed(1) + ' MI';
-    gpsTimers.push(setInterval(function(){
-      eta = Math.max(0, eta - 1);
-      range = Math.max(0, range - 2.4/20);
-      etaEl.textContent = eta + 's';
-      rangeEl.textContent = range.toFixed(1) + ' MI';
-    }, 1000));
-
     // Auto power-down at 20s
-    gpsTimers.push(setTimeout(function(){
-      instr.textContent = '★ ARRIVED — REFERRAL SECURED';
-      head.textContent = '✓';
-      gpsTimers.push(setTimeout(powerDown, 1400));
-    }, 20000));
+    gpsTimers.push(setTimeout(powerDown, 20000));
   }
 
   function arm(){
@@ -450,15 +422,12 @@
     body.classList.remove('targeting');
     body.classList.remove('armed');
     document.getElementById('statusWord').textContent='STANDBY';
-    document.getElementById('coreWord').textContent='ARM';
+    document.getElementById('coreWord').textContent='GO';
     document.getElementById('coreSub').textContent='tap to engage';
     document.getElementById('stCharge').textContent='28%';
     document.getElementById('stThreat').textContent='3.14';
     document.getElementById('gpsArrow').style.transform='rotate(180deg)';
     document.getElementById('gpsHead').textContent='S';
-    document.getElementById('gpsInstr').textContent='PROCEED SOUTH TO REFERRAL';
-    document.getElementById('gpsEta').textContent='20s';
-    document.getElementById('gpsRange').textContent='2.4 MI';
     anime.set('#charge',{strokeDashoffset:CIRC*0.72});
     if(navigator.vibrate) navigator.vibrate(0);
   }
