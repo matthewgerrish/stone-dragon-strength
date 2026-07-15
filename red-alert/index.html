@@ -178,7 +178,8 @@
     width:56%;height:56%;display:flex;align-items:center;justify-content:center;
     transition:transform 1.1s cubic-bezier(.5,0,.15,1.3);will-change:transform;
   }
-  #gpsArrow svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 18px rgba(255,200,60,.75))}
+  #gpsArrow svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 18px rgba(255,200,60,.75));transform-origin:50% 50%;animation:wiggle .85s ease-in-out infinite}
+  @keyframes wiggle{0%,100%{transform:rotate(-3.5deg)}50%{transform:rotate(3.5deg)}}
   #gpsArrow .arrowfill{fill:var(--amber)}
   .gps-data{display:flex;gap:clamp(16px,7vw,54px);font-family:var(--mono)}
   .gps-data .k{font-size:9px;letter-spacing:.2em;color:#c77;text-transform:uppercase;display:block;margin-bottom:4px}
@@ -189,7 +190,7 @@
 
   @media (prefers-reduced-motion: reduce){
     #scan,.spin-cw,.spin-ccw,.spin-fast,.core-pulse,.statuspill b,
-    #redflash,#title,#coreWord{animation:none !important}
+    #redflash,#title,#coreWord,#gpsArrow svg{animation:none !important}
     #redflash{opacity:.16}
     #console,#target,#gpsArrow{transition:none !important}
   }
