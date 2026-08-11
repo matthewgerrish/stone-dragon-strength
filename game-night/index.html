@@ -673,7 +673,8 @@ function nextHome(){
   $("priceMeta").textContent = "SOLD " + (h.closed || "") + (SOLD.sample ? " · SAMPLE" : "");
   $("btnReveal").style.display = ""; $("btnConfirmOut").style.display = "none"; $("btnNextHome").style.display = "none";
   $("guessList").innerHTML = "";
-  send({t:"phase", mode:"price", payload:{round: round, label: h.address + ", " + h.city}});
+  send({t:"phase", mode:"price", payload:{round: round, label: h.address + ", " + h.city},
+        media:{photo: h.photo, stats: h.beds + " bd · " + h.baths + " ba · " + (h.sqft||0).toLocaleString() + " sqft" + (h.year ? " · built " + h.year : "")}});
   renderGuessTicker(); renderBar(); renderStrip();
 }
 function renderGuessTicker(){
